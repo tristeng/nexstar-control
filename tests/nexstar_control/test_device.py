@@ -1,14 +1,26 @@
 #
 # Copyright Tristen Georgiou 2024
 #
+import datetime
 import logging
 from unittest.mock import MagicMock, call
+from zoneinfo import ZoneInfo
 
 import pytest
 from pytest_mock import MockFixture
 import serial
 
-from nexstar_control.device import NexStarHandControl, TrackingMode, DeviceType, DeviceModel
+from nexstar_control.device import (
+    NexStarHandControl,
+    TrackingMode,
+    DeviceType,
+    DeviceModel,
+    to_dms,
+    LatitudeDMS,
+    CardinalDirectionLatitude,
+    LongitudeDMS,
+    CardinalDirectionLongitude,
+)
 
 
 @pytest.fixture
@@ -419,4 +431,288 @@ def test_cancel_goto_logs_warning_when_response_length_is_incorrect(
 ) -> None:
     mock_serial.return_value.read_until.return_value = b"1#"
     mock_hand_control.cancel_goto()
+    assert "Expected an empty response!" in caplog.text
+
+
+def test_converts_positive_decimal_to_dms() -> None:
+    assert to_dms(121.135) == (121, 8, 6)
+
+
+def test_converts_negative_decimal_to_dms_and_ignores_sign() -> None:
+    assert to_dms(-121.135) == (121, 8, 6)
+
+
+def test_converts_zero_decimal_to_dms() -> None:
+    assert to_dms(0) == (0, 0, 0)
+
+
+def test_converts_decimal_with_only_degrees_to_dms() -> None:
+    assert to_dms(45.0) == (45, 0, 0)
+
+
+def test_converts_decimal_with_degrees_and_minutes_to_dms() -> None:
+    assert to_dms(45.5) == (45, 30, 0)
+
+
+def test_converts_decimal_close_to_next_degree_to_dms() -> None:
+    assert to_dms(-45.9999) == (45, 59, 59)
+
+
+def test_handles_large_decimal_values() -> None:
+    assert to_dms(359.9999) == (359, 59, 59)
+
+
+def test_latitude_creation_with_valid_values() -> None:
+    latitude = LatitudeDMS(45, 30, 15, CardinalDirectionLatitude.NORTH)
+    assert latitude.degrees == 45
+    assert latitude.minutes == 30
+    assert latitude.seconds == 15
+    assert latitude.direction == CardinalDirectionLatitude.NORTH
+
+
+def test_latitude_creation_raises_assertion_for_invalid_degrees() -> None:
+    with pytest.raises(AssertionError):
+        LatitudeDMS(91, 0, 0, CardinalDirectionLatitude.NORTH)
+
+    with pytest.raises(AssertionError):
+        LatitudeDMS(-1, 0, 0, CardinalDirectionLatitude.NORTH)
+
+
+def test_latitude_creation_raises_assertion_for_invalid_minutes() -> None:
+    with pytest.raises(AssertionError):
+        LatitudeDMS(0, 60, 0, CardinalDirectionLatitude.NORTH)
+
+    with pytest.raises(AssertionError):
+        LatitudeDMS(0, -1, 0, CardinalDirectionLatitude.NORTH)
+
+
+def test_latitude_creation_raises_assertion_for_invalid_seconds() -> None:
+    with pytest.raises(AssertionError):
+        LatitudeDMS(0, 0, 60, CardinalDirectionLatitude.NORTH)
+
+    with pytest.raises(AssertionError):
+        LatitudeDMS(0, 0, -1, CardinalDirectionLatitude.NORTH)
+
+
+def test_latitude_to_decimal_conversion_north() -> None:
+    latitude = LatitudeDMS(45, 30, 0, CardinalDirectionLatitude.NORTH)
+    assert latitude.to_decimal() == 45.5
+
+
+def test_latitude_to_decimal_conversion_south() -> None:
+    latitude = LatitudeDMS(45, 30, 15, CardinalDirectionLatitude.SOUTH)
+    assert pytest.approx(latitude.to_decimal()) == -45.504167
+
+
+def test_latitude_from_decimal_positive_value() -> None:
+    latitude = LatitudeDMS.from_decimal(45.5)
+    assert latitude.degrees == 45
+    assert latitude.minutes == 30
+    assert latitude.seconds == 0
+    assert latitude.direction == CardinalDirectionLatitude.NORTH
+
+
+def test_latitude_from_decimal_negative_value() -> None:
+    latitude = LatitudeDMS.from_decimal(-45.5)
+    assert latitude.degrees == 45
+    assert latitude.minutes == 30
+    assert latitude.seconds == 0
+    assert latitude.direction == CardinalDirectionLatitude.SOUTH
+
+
+def test_latitude_string_representation() -> None:
+    latitude = LatitudeDMS(45, 30, 0, CardinalDirectionLatitude.NORTH)
+    assert str(latitude) == "45° 30' 0\" N"
+
+    latitude = LatitudeDMS(45, 30, 15, CardinalDirectionLatitude.SOUTH)
+    assert str(latitude) == "45° 30' 15\" S"
+
+
+def test_longitude_creation_with_valid_values() -> None:
+    longitude = LongitudeDMS(120, 45, 30, CardinalDirectionLongitude.EAST)
+    assert longitude.degrees == 120
+    assert longitude.minutes == 45
+    assert longitude.seconds == 30
+    assert longitude.direction == CardinalDirectionLongitude.EAST
+
+
+def test_longitude_creation_raises_assertion_for_invalid_degrees() -> None:
+    with pytest.raises(AssertionError):
+        LongitudeDMS(181, 0, 0, CardinalDirectionLongitude.EAST)
+
+
+def test_longitude_creation_raises_assertion_for_invalid_minutes() -> None:
+    with pytest.raises(AssertionError):
+        LongitudeDMS(0, 60, 0, CardinalDirectionLongitude.EAST)
+
+
+def test_longitude_creation_raises_assertion_for_invalid_seconds() -> None:
+    with pytest.raises(AssertionError):
+        LongitudeDMS(0, 0, 60, CardinalDirectionLongitude.EAST)
+
+
+def test_longitude_to_decimal_conversion_east() -> None:
+    longitude = LongitudeDMS(120, 45, 30, CardinalDirectionLongitude.EAST)
+    assert longitude.to_decimal() == 120.75833333333334
+
+
+def test_longitude_to_decimal_conversion_west() -> None:
+    longitude = LongitudeDMS(120, 45, 30, CardinalDirectionLongitude.WEST)
+    assert longitude.to_decimal() == -120.75833333333334
+
+
+def test_longitude_from_decimal_positive_value() -> None:
+    longitude = LongitudeDMS.from_decimal(120.75833333333334)
+    assert longitude.degrees == 120
+    assert longitude.minutes == 45
+    assert longitude.seconds == 30
+    assert longitude.direction == CardinalDirectionLongitude.EAST
+
+
+def test_longitude_from_decimal_negative_value() -> None:
+    longitude = LongitudeDMS.from_decimal(-120.75833333333334)
+    assert longitude.degrees == 120
+    assert longitude.minutes == 45
+    assert longitude.seconds == 30
+    assert longitude.direction == CardinalDirectionLongitude.WEST
+
+
+def test_longitude_string_representation() -> None:
+    longitude = LongitudeDMS(120, 45, 30, CardinalDirectionLongitude.EAST)
+    assert str(longitude) == "120° 45' 30\" E"
+
+    longitude = LongitudeDMS(120, 45, 30, CardinalDirectionLongitude.WEST)
+    assert str(longitude) == "120° 45' 30\" W"
+
+
+def test_get_location_returns_correct_latitude_and_longitude(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"\x30\x2e\x30\x00\x78\x2e\x30\x01#"
+    lat, lon = mock_hand_control.get_location()
+    assert (
+        lat.degrees == 48
+        and lat.minutes == 46
+        and lat.seconds == 48
+        and lat.direction == CardinalDirectionLatitude.NORTH
+    )
+    assert (
+        lon.degrees == 120
+        and lon.minutes == 46
+        and lon.seconds == 48
+        and lon.direction == CardinalDirectionLongitude.WEST
+    )
+
+
+def test_get_location_handles_invalid_response_length(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"\x30\x2e\x30\x00"
+    with pytest.raises(AssertionError):
+        mock_hand_control.get_location()
+
+
+def test_get_location_handles_invalid_latitude_direction(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    # Invalid direction value for latitude
+    mock_serial.return_value.read_until.return_value = b"\x30\x2e\x30\x00\x78\x2e\x30\x02"
+    with pytest.raises(ValueError):
+        mock_hand_control.get_location()
+
+
+def test_get_location_handles_invalid_longitude_direction(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    # Invalid direction value for longitude
+    mock_serial.return_value.read_until.return_value = b"\x30\x2e\x30\x00\x78\x2e\x30\x03"
+    with pytest.raises(ValueError):
+        mock_hand_control.get_location()
+
+
+def test_set_location_sends_correct_commands(mock_hand_control: NexStarHandControl, mock_serial: MagicMock) -> None:
+    mock_serial.return_value.read_until.return_value = b"#"
+    mock_hand_control.set_location(
+        LatitudeDMS(45, 30, 0, CardinalDirectionLatitude.SOUTH),
+        LongitudeDMS(120, 45, 0, CardinalDirectionLongitude.EAST),
+    )
+    mock_serial.return_value.write.assert_called_with(bytes([87, 45, 30, 0, 1, 120, 45, 0, 0]))
+
+
+def test_set_location_receives_unexpected_response_logs_warning(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"1#"
+    mock_hand_control.set_location(
+        LatitudeDMS(45, 30, 0, CardinalDirectionLatitude.SOUTH),
+        LongitudeDMS(120, 45, 0, CardinalDirectionLongitude.EAST),
+    )
+    mock_serial.return_value.write.assert_called_with(bytes([87, 45, 30, 0, 1, 120, 45, 0, 0]))
+    assert "Expected an empty response!" in caplog.text
+
+
+def test_get_time_returns_correct_datetime_for_valid_response(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"\x07\x1e\x1c\x04\x0a\x14\x0b\x00#"
+    expected_datetime = datetime.datetime(
+        2020, 4, 10, 7, 30, 28, tzinfo=datetime.timezone(datetime.timedelta(hours=11))
+    )
+    assert mock_hand_control.get_time() == expected_datetime
+
+
+def test_get_time_raises_assertion_error_for_invalid_response_length(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"\x07\x1e\x1c\x04\x0a\x14\x0b#"
+    with pytest.raises(AssertionError):
+        mock_hand_control.get_time()
+
+
+def test_get_time_handles_negative_timezone_offset_correctly(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"\x07\x1e\x1c\x04\x0a\x14\xef\x00#"
+    expected_datetime = datetime.datetime(
+        2020, 4, 10, 7, 30, 28, tzinfo=datetime.timezone(datetime.timedelta(hours=-17))
+    )
+    assert mock_hand_control.get_time() == expected_datetime
+
+
+def test_get_time_accounts_for_daylight_saving_time(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"\x07\x1e\x1c\x04\x0a\x14\x0b\x01"
+    expected_datetime = datetime.datetime(
+        2020, 4, 10, 7, 30, 28, tzinfo=datetime.timezone(datetime.timedelta(hours=12))
+    )
+    assert mock_hand_control.get_time() == expected_datetime
+
+
+def test_sets_time_with_positive_timezone_offset(mock_hand_control: NexStarHandControl, mock_serial: MagicMock) -> None:
+    time_to_set = datetime.datetime(2023, 5, 17, 15, 30, 45, tzinfo=datetime.timezone(datetime.timedelta(hours=5)))
+    mock_hand_control.set_time(time_to_set)
+    mock_serial.return_value.write.assert_called_with(b"H\x0f\x1e-\x05\x11\x17\x05\x01")
+
+
+def test_sets_time_with_negative_timezone_offset(mock_hand_control: NexStarHandControl, mock_serial: MagicMock) -> None:
+    time_to_set = datetime.datetime(2023, 5, 17, 15, 30, 45, tzinfo=datetime.timezone(datetime.timedelta(hours=-7)))
+    mock_hand_control.set_time(time_to_set)
+    mock_serial.return_value.write.assert_called_with(b"H\x0f\x1e-\x05\x11\x17\xf9\x01")
+
+
+def test_sets_time_without_daylight_saving_time(mock_hand_control: NexStarHandControl, mock_serial: MagicMock) -> None:
+    # standard time is in January for Vancouver
+    time_to_set = datetime.datetime(2023, 1, 17, 15, 30, 45, tzinfo=ZoneInfo("America/Vancouver"))
+    mock_hand_control.set_time(time_to_set)
+    mock_serial.return_value.write.assert_called_with(b"H\x0f\x1e-\x01\x11\x17\xf8\x00")
+
+
+def test_set_time_receives_unexpected_response_logs_warning(
+    mock_hand_control: NexStarHandControl, mock_serial: MagicMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    mock_serial.return_value.read_until.return_value = b"1#"
+    time_to_set = datetime.datetime(2023, 5, 17, 15, 30, 45, tzinfo=datetime.timezone.utc)
+    mock_hand_control.set_time(time_to_set)
+    mock_serial.return_value.write.assert_called_with(b"H\x0f\x1e-\x05\x11\x17\x00\x01")
     assert "Expected an empty response!" in caplog.text

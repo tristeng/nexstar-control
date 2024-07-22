@@ -1,11 +1,12 @@
 #
 # Copyright Tristen Georgiou 2024
 #
-
+import datetime
 import logging
 import time
+from zoneinfo import ZoneInfo
 
-from nexstar_control.device import NexStarHandControl, TrackingMode
+from nexstar_control.device import NexStarHandControl, TrackingMode, LatitudeDMS, LongitudeDMS
 from nexstar_control.device import DeviceType
 
 log = logging.getLogger(__name__)
@@ -153,4 +154,22 @@ if __name__ == "__main__":
     hc.slew_stop()
 
     # restore the tracking mode
+    log.info("Restoring the tracking mode now that we are done with slew operations")
     hc.set_tracking_mode(current_tracking_mode)
+
+    # set the location for the telescope
+    log.info("Setting the location to Latitude: 49.2849, Longitude: -122.8678 - Port Moody, BC, Canada")
+    hc.set_location(lat=LatitudeDMS.from_decimal(49.2849), lng=LongitudeDMS.from_decimal(-122.8678))
+
+    # get the location of the telescope
+    lat, lng = hc.get_location()
+    log.info(f"Latitude: {lat}, Longitude: {lng}")
+
+    # set the time for the telescope
+    log.info("Setting the time to the current local time in Vancouver, BC, Canada")
+    dt = datetime.datetime.now(tz=ZoneInfo("America/Vancouver"))
+    hc.set_time(dt)
+
+    # get the time of the telescope
+    dt = hc.get_time()
+    log.info(f"Time: {dt}")

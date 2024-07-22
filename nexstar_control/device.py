@@ -1,6 +1,7 @@
 #
 # Copyright Tristen Georgiou 2024
 #
+import datetime
 import enum
 import logging
 
@@ -49,6 +50,147 @@ class TrackingMode(enum.Enum):
     ALT_AZ = 1
     EQ_NORTH = 2
     EQ_SOUTH = 3
+
+
+class CardinalDirectionLatitude(enum.Enum):
+    """
+    Cardinal directions for latitude
+    """
+
+    NORTH = 0
+    SOUTH = 1
+
+
+class CardinalDirectionLongitude(enum.Enum):
+    """
+    Cardinal directions for longitude
+    """
+
+    EAST = 0
+    WEST = 1
+
+
+def to_dms(value: float) -> tuple[int, int, int]:
+    """
+    Converts a decimal value to degrees, minutes, and seconds
+    NOTE: This function converts negative values to positive - user is responsible for direction
+
+    :param value: The decimal value to convert
+    :return: A tuple of degrees, minutes, and seconds
+    """
+    value = abs(value)
+    degrees = int(value)
+    minutes = int((value - degrees) * 60)
+    seconds = int((value - degrees - minutes / 60) * 3600)
+    return degrees, minutes, seconds
+
+
+class LatitudeDMS:
+    """
+    Class to represent latitude in degrees, minutes, and seconds
+    """
+
+    def __init__(self, degrees: int, minutes: int, seconds: int, direction: CardinalDirectionLatitude):
+        """
+        Creates a latitude object
+
+        :param degrees: the degrees of the latitude
+        :param minutes: the minutes of the latitude
+        :param seconds: the seconds of the latitude
+        :param direction: the direction of the latitude
+        :raises AssertionError: if the degrees, minutes, or seconds are out of range
+        """
+        assert 0 <= degrees <= 90, f"Degrees must be between 0 and 90! Actual degrees was '{degrees}'"
+        assert 0 <= minutes <= 59, f"Minutes must be between 0 and 59! Actual minutes was '{minutes}'"
+        assert 0 <= seconds <= 59, f"Seconds must be between 0 and 59! Actual seconds was '{seconds}'"
+        self.degrees = degrees
+        self.minutes = minutes
+        self.seconds = seconds
+        self.direction = direction
+
+    def __str__(self) -> str:
+        """
+        Returns a user friendly string representation of the latitude
+
+        :return: a string representation of the latitude
+        """
+        return f"{self.degrees}° {self.minutes}' {self.seconds}\" {self.direction.name[0]}"
+
+    def to_decimal(self) -> float:
+        """
+        Converts the latitude to decimal degrees
+
+        :return: the latitude in decimal degrees
+        """
+        absval = self.degrees + self.minutes / 60 + self.seconds / 3600
+        return absval if self.direction == CardinalDirectionLatitude.NORTH else -absval
+
+    @staticmethod
+    def from_decimal(value: float) -> "LatitudeDMS":
+        """
+        Converts a decimal value to a latitude
+
+        :param value: The decimal value to convert
+        """
+        assert -90 <= value <= 90, f"Value must be between -90 and 90! Actual value was '{value}'"
+
+        direction = CardinalDirectionLatitude.NORTH if value >= 0 else CardinalDirectionLatitude.SOUTH
+        degrees, minutes, seconds = to_dms(value)
+        return LatitudeDMS(degrees, minutes, seconds, direction)
+
+
+class LongitudeDMS:
+    """
+    Class to represent longitude in degrees, minutes, and seconds
+    """
+
+    def __init__(self, degrees: int, minutes: int, seconds: int, direction: CardinalDirectionLongitude):
+        """
+        Creates a longitude object
+
+        :param degrees: the degrees of the longitude
+        :param minutes: the minutes of the longitude
+        :param seconds: the seconds of the longitude
+        :param direction: the direction of the longitude
+        :raises AssertionError: if the degrees, minutes, or seconds are out of range
+        """
+        assert 0 <= degrees <= 180, f"Degrees must be between 0 and 180! Actual degrees was '{degrees}'"
+        assert 0 <= minutes <= 59, f"Minutes must be between 0 and 59! Actual minutes was '{minutes}'"
+        assert 0 <= seconds <= 59, f"Seconds must be between 0 and 59! Actual seconds was '{seconds}'"
+        self.degrees = degrees
+        self.minutes = minutes
+        self.seconds = seconds
+        self.direction = direction
+
+    def __str__(self) -> str:
+        """
+        Returns a user friendly string representation of the longitude
+
+        :return: a string representation of the longitude
+        """
+        return f"{self.degrees}° {self.minutes}' {self.seconds}\" {self.direction.name[0]}"
+
+    def to_decimal(self) -> float:
+        """
+        Converts the longitude to decimal degrees
+
+        :return: the longitude in decimal degrees
+        """
+        absval = self.degrees + self.minutes / 60 + self.seconds / 3600
+        return absval if self.direction == CardinalDirectionLongitude.EAST else -absval
+
+    @staticmethod
+    def from_decimal(value: float) -> "LongitudeDMS":
+        """
+        Converts a decimal value to a longitude
+
+        :param value: The decimal value to convert
+        """
+        assert -180 <= value <= 180, f"Value must be between -180 and 180! Actual value was '{value}'"
+
+        direction = CardinalDirectionLongitude.EAST if value >= 0 else CardinalDirectionLongitude.WEST
+        degrees, minutes, seconds = to_dms(value)
+        return LongitudeDMS(degrees, minutes, seconds, direction)
 
 
 class NexStarHandControl:
@@ -133,9 +275,9 @@ class NexStarHandControl:
         :return: A tuple of floats in degrees
         """
         if is_precise:
-            assert len(response) == 17, f"Expected a response with 17 bytes! Actual response was '{response}'"
+            assert len(response) == 17, f"Expected a response with 17 bytes! Actual response was {response}"
         else:
-            assert len(response) == 9, f"Expected a response with 9 bytes! Actual response was '{response}'"
+            assert len(response) == 9, f"Expected a response with 9 bytes! Actual response was {response}"
         x, y = response.split(b",")
         if is_precise:
             x = int(x, base=16) / self.CONVERSION_PRECISE
@@ -204,7 +346,7 @@ class NexStarHandControl:
             y = round(y * self.CONVERSION)
             response = self.query(f"{command}{x:04x},{y:04x}".encode(ENCODING))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     def goto_ra_dec(self, ra: float, dec: float) -> None:
         """
@@ -253,7 +395,7 @@ class NexStarHandControl:
         y = round(dec * self.CONVERSION)
         response = self.query(f"S{x:04x},{y:04x}".encode(ENCODING))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     def sync_ra_dec_precise(self, ra: float, dec: float) -> None:
         """
@@ -266,7 +408,7 @@ class NexStarHandControl:
         y = round(dec * self.CONVERSION_PRECISE)
         response = self.query(f"s{x:08x},{y:08x}".encode(ENCODING))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     @staticmethod
     def _handle_variable_slew_rate(rate: int) -> tuple[int, int, int]:
@@ -295,9 +437,9 @@ class NexStarHandControl:
         :param rate: The variable slew rate in arcseconds/second, negative values are reverse
         """
         direction, rate_high, rate_low = self._handle_variable_slew_rate(rate)
-        response = self.query(bytes([80, 3, 16, direction, rate_high, rate_low, 0, 0]))
+        response = self.query(bytes([ord("P"), 3, 16, direction, rate_high, rate_low, 0, 0]))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     def slew_alt_variable(self, rate: int) -> None:
         """
@@ -306,9 +448,9 @@ class NexStarHandControl:
         :param rate: The variable slew rate in arcseconds/second, negative values are reverse
         """
         direction, rate_high, rate_low = self._handle_variable_slew_rate(rate)
-        response = self.query(bytes([80, 3, 17, direction, rate_high, rate_low, 0, 0]))
+        response = self.query(bytes([ord("P"), 3, 17, direction, rate_high, rate_low, 0, 0]))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     def slew_variable(self, azm_rate: int, alt_rate: int) -> None:
         """
@@ -333,9 +475,9 @@ class NexStarHandControl:
             direction = 37  # reverse
             rate = abs(rate)
 
-        response = self.query(bytes([80, 2, 16, direction, rate, 0, 0, 0]))
+        response = self.query(bytes([ord("P"), 2, 16, direction, rate, 0, 0, 0]))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     def slew_alt_fixed(self, rate: int) -> None:
         """
@@ -350,9 +492,9 @@ class NexStarHandControl:
             direction = 37  # reverse
             rate = abs(rate)
 
-        response = self.query(bytes([80, 2, 17, direction, rate, 0, 0, 0]))
+        response = self.query(bytes([ord("P"), 2, 17, direction, rate, 0, 0, 0]))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     def slew_fixed(self, azm_rate: int, alt_rate: int) -> None:
         """
@@ -370,6 +512,99 @@ class NexStarHandControl:
         """
         self.slew_fixed(0, 0)
 
+    def get_location(self) -> tuple[LatitudeDMS, LongitudeDMS]:
+        """
+        Returns the current location of the telescope
+
+        :return: A tuple of the latitude and longitude
+        """
+        response = self.query(b"w")
+        assert len(response) == 8, f"Expected a response with 8 bytes! Actual response was {response}"
+        lat_deg, lat_min, lat_sec, lat_dir = response[0], response[1], response[2], response[3]
+        lon_deg, lon_min, lon_sec, lon_dir = response[4], response[5], response[6], response[7]
+        return (
+            LatitudeDMS(lat_deg, lat_min, lat_sec, CardinalDirectionLatitude(lat_dir)),
+            LongitudeDMS(lon_deg, lon_min, lon_sec, CardinalDirectionLongitude(lon_dir)),
+        )
+
+    def set_location(self, lat: LatitudeDMS, lng: LongitudeDMS) -> None:
+        """
+        Sets the location of the telescope
+
+        :param lat: The latitude of the telescope
+        :param lng: The longitude of the telescope
+        """
+        response = self.query(
+            bytes(
+                [
+                    ord("W"),
+                    lat.degrees,
+                    lat.minutes,
+                    lat.seconds,
+                    lat.direction.value,
+                    lng.degrees,
+                    lng.minutes,
+                    lng.seconds,
+                    lng.direction.value,
+                ]
+            )
+        )
+        if len(response) != 0:
+            log.warning(f"Expected an empty response! Actual response was {response}")
+
+    def get_time(self) -> datetime.datetime:
+        """
+        Returns the current time of the telescope
+
+        :return: The current time of the telescope
+        """
+        response = self.query(b"h")
+        assert len(response) == 8, f"Expected a response with 8 bytes! Actual response was {response}"
+        hour, minute, second, month, day, year, zone_offset, dst = (
+            response[0],
+            response[1],
+            response[2],
+            response[3],
+            response[4],
+            response[5],
+            response[6],
+            response[7],
+        )
+        if zone_offset > 24:
+            # negative offsets are encoded as 256 - offset
+            zone_offset -= 256
+        tz = datetime.timezone(datetime.timedelta(hours=zone_offset + dst))
+        return datetime.datetime(year + 2000, month, day, hour, minute, second, tzinfo=tz)
+
+    def set_time(self, time: datetime.datetime) -> None:
+        """
+        Sets the time of the telescope
+
+        :param time: The time to set
+        """
+        zone_offset = int(time.utcoffset().total_seconds() // 3600)
+        # if zone offset is negative, it is encoded as 256 - offset
+        if zone_offset < 0:
+            zone_offset += 256
+        dst = 1 if time.dst() != datetime.timedelta(0) else 0
+        response = self.query(
+            bytes(
+                [
+                    ord("H"),
+                    time.hour,
+                    time.minute,
+                    time.second,
+                    time.month,
+                    time.day,
+                    time.year - 2000,
+                    zone_offset,
+                    dst,
+                ]
+            )
+        )
+        if len(response) != 0:
+            log.warning(f"Expected an empty response! Actual response was {response}")
+
     def get_tracking_mode(self) -> TrackingMode:
         """
         Returns the current tracking mode
@@ -377,7 +612,7 @@ class NexStarHandControl:
         :return: The current tracking mode
         """
         response = self.query(b"t")
-        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was '{response}'"
+        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was {response}"
         return TrackingMode(response[0])
 
     def set_tracking_mode(self, mode: TrackingMode) -> None:
@@ -388,7 +623,7 @@ class NexStarHandControl:
         """
         response = self.query(bytes([84, mode.value]))
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")
 
     def get_device_version(self, device_type: DeviceType) -> tuple[int, int]:
         """
@@ -398,7 +633,7 @@ class NexStarHandControl:
         :return: The device version as a tuple of major and minor version numbers
         """
         response = self.query(bytes([80, 1, device_type.value, 254, 0, 0, 0, 2]))
-        assert len(response) == 2, f"Expected a response with 2 bytes! Actual response was '{response}'"
+        assert len(response) == 2, f"Expected a response with 2 bytes! Actual response was {response}"
         return int(response[0]), int(response[1])
 
     def get_device_model(self) -> DeviceModel:
@@ -408,7 +643,7 @@ class NexStarHandControl:
         :return: The device model
         """
         response = self.query(b"m")
-        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was '{response}'"
+        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was {response}"
         return DeviceModel(response[0])
 
     def is_connected(self) -> bool:
@@ -418,7 +653,7 @@ class NexStarHandControl:
         :return: True if the device is connected, False otherwise
         """
         response = self.query(b"Kx")
-        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was '{response}'"
+        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was {response}"
         return response == b"x"
 
     def is_aligned(self) -> bool:
@@ -428,7 +663,7 @@ class NexStarHandControl:
         :return: True if the alignment is complete, False otherwise
         """
         response = self.query(b"J")
-        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was '{response}'"
+        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was {response}"
         return response == b"\x01"
 
     def is_goto_in_progress(self) -> bool:
@@ -438,7 +673,7 @@ class NexStarHandControl:
         :return: True if a goto operation is in progress, False otherwise
         """
         response = self.query(b"L")
-        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was '{response}'"
+        assert len(response) == 1, f"Expected a response with 1 byte! Actual response was {response}"
         return response.decode(ENCODING) == "1"
 
     def cancel_goto(self) -> None:
@@ -447,4 +682,4 @@ class NexStarHandControl:
         """
         response = self.query(b"M")
         if len(response) != 0:
-            log.warning(f"Expected an empty response! Actual response was '{response}'")
+            log.warning(f"Expected an empty response! Actual response was {response}")

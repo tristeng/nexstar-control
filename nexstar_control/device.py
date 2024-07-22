@@ -573,7 +573,10 @@ class NexStarHandControl:
         if zone_offset > 24:
             # negative offsets are encoded as 256 - offset
             zone_offset -= 256
-        tz = datetime.timezone(datetime.timedelta(hours=zone_offset + dst))
+        if dst == 1:
+            # DST is automatically applied during set, so doesn't need to be re-applied when getting time
+            log.info("Daylight Savings Time is active")
+        tz = datetime.timezone(datetime.timedelta(hours=zone_offset))
         return datetime.datetime(year + 2000, month, day, hour, minute, second, tzinfo=tz)
 
     def set_time(self, time: datetime.datetime) -> None:

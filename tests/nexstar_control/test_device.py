@@ -684,7 +684,7 @@ def test_get_time_accounts_for_daylight_saving_time(
 ) -> None:
     mock_serial.return_value.read_until.return_value = b"\x07\x1e\x1c\x04\x0a\x14\x0b\x01"
     expected_datetime = datetime.datetime(
-        2020, 4, 10, 7, 30, 28, tzinfo=datetime.timezone(datetime.timedelta(hours=12))
+        2020, 4, 10, 7, 30, 28, tzinfo=datetime.timezone(datetime.timedelta(hours=11))
     )
     assert mock_hand_control.get_time() == expected_datetime
 

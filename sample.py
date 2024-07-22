@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     hc = NexStarHandControl("COM3")
     if not hc.is_connected():
@@ -163,13 +163,15 @@ if __name__ == "__main__":
 
     # get the location of the telescope
     lat, lng = hc.get_location()
-    log.info(f"Latitude: {lat}, Longitude: {lng}")
+    log.info(f"Location set to Latitude: {lat}, Longitude: {lng}")
 
     # set the time for the telescope
     log.info("Setting the time to the current local time in Vancouver, BC, Canada")
     dt = datetime.datetime.now(tz=ZoneInfo("America/Vancouver"))
+    log.info(f"Current local time: {dt}")
     hc.set_time(dt)
 
     # get the time of the telescope
+    log.info("Getting the time from the telescope")
     dt = hc.get_time()
-    log.info(f"Time: {dt}")
+    log.info(f"Telescope time: {dt}")

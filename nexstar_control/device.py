@@ -51,22 +51,6 @@ class TrackingMode(enum.Enum):
     EQ_SOUTH = 3
 
 
-# class FixedSlewRates(enum.Enum):
-#     """
-#     Fixed slew rates for the Celestron NexStar Hand Control where 1 is slowest and 9 is fastest
-#     """
-#     STOP = 0
-#     RATE_1 = 1
-#     RATE_2 = 2
-#     RATE_3 = 3
-#     RATE_4 = 4
-#     RATE_5 = 5
-#     RATE_6 = 6
-#     RATE_7 = 7
-#     RATE_8 = 8
-#     RATE_9 = 9
-
-
 class NexStarHandControl:
     """
     Class to communicate with the Celestron NexStar Hand Control and connected devices
@@ -101,6 +85,7 @@ class NexStarHandControl:
             log.info(f"Successfully opened serial port {port}")
         except serial.SerialException:
             log.exception(f"Failed to open serial port {port}")
+            raise
 
     def __del__(self) -> None:
         if self.ser is not None:
@@ -227,7 +212,6 @@ class NexStarHandControl:
 
         :param ra: The right ascension position in degrees
         :param dec: The declination position in degrees
-        :raises NexStarHandControlException: If the telescope is not aligned
         """
         self._handle_goto_command(ra, dec, is_precise=False, is_ra_dec=True)
 
@@ -237,7 +221,6 @@ class NexStarHandControl:
 
         :param ra: The right ascension position in degrees
         :param dec: The declination position in degrees
-        :raises NexStarHandControlException: If the telescope is not aligned
         """
         self._handle_goto_command(ra, dec, is_precise=True, is_ra_dec=True)
 
@@ -247,7 +230,6 @@ class NexStarHandControl:
 
         :param azm: The azimuth position in degrees
         :param alt: The altitude position in degrees
-        :raises NexStarHandControlException: If the telescope is not aligned
         """
         self._handle_goto_command(azm, alt, is_precise=False, is_ra_dec=False)
 
@@ -257,7 +239,6 @@ class NexStarHandControl:
 
         :param azm: The azimuth position in degrees
         :param alt: The altitude position in degrees
-        :raises NexStarHandControlException: If the telescope is not aligned
         """
         self._handle_goto_command(azm, alt, is_precise=True, is_ra_dec=False)
 

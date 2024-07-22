@@ -60,7 +60,7 @@ if __name__ == "__main__":
     mode = hc.get_tracking_mode()
     log.info(f"Tracking mode: {mode.name}")
 
-    hc.set_tracking_mode(TrackingMode.ALT_AZ)
+    hc.set_tracking_mode(TrackingMode.OFF)
     mode = hc.get_tracking_mode()
     log.info(f"Tracking mode: {mode.name}")
 
@@ -96,7 +96,10 @@ if __name__ == "__main__":
     log.info(f"Syncing telescope to RA: {ra}, Dec: {dec}")
     hc.sync_ra_dec_precise(ra, dec)
 
-    # slew operations
+    # slew operations - it is recommended to turn off the tracking mode when doing slew operations
+    current_tracking_mode = hc.get_tracking_mode()
+    hc.set_tracking_mode(TrackingMode.OFF)
+
     log.info("Slewing in Azimuth with fixed rate 9")
     hc.slew_azm_fixed(9)
     time.sleep(2)
@@ -116,20 +119,20 @@ if __name__ == "__main__":
     hc.slew_alt_fixed(0)
 
     log.info("Slewing in Altitude with fixed rate -8")
-    hc.slew_alt_fixed(-9)
+    hc.slew_alt_fixed(-8)
     time.sleep(2)
     log.info("Stopping slew operation")
     hc.slew_alt_fixed(0)
 
     # slew in both directions at the same time
-    log.info("Slewing in both Azimuth and Altitude with fixed rate 9")
-    hc.slew_fixed(-9, -9)
+    log.info("Slewing in both Azimuth and Altitude with fixed rate (9, -9)")
+    hc.slew_fixed(9, -9)
     time.sleep(2)
     log.info("Stopping slew operation")
     hc.slew_stop()
 
     # slew in azimuth by a variable rate
-    log.info("Slewing in Azimuth with variable rate -15000")
+    log.info("Slewing in Azimuth with variable rate -15000 arcseconds per second")
     hc.slew_azm_variable(-15000)
     time.sleep(2)
     log.info("Stopping slew operation")
@@ -143,8 +146,11 @@ if __name__ == "__main__":
     hc.slew_stop()
 
     # slew in both directions at the same time by a variable rate
-    log.info("Slewing in both Azimuth and Altitude with variable rate 15000, -15000")
+    log.info("Slewing in both Azimuth and Altitude with variable rate (15000, -15000) arcseconds per second")
     hc.slew_variable(15000, -15000)
     time.sleep(2)
     log.info("Stopping slew operation")
     hc.slew_stop()
+
+    # restore the tracking mode
+    hc.set_tracking_mode(current_tracking_mode)

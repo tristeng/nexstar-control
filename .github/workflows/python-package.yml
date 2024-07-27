@@ -1,0 +1,39 @@
+# This workflow will install Python dependencies, lint, format and run tests
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install poetry==1.8.3
+        poetry install
+    - name: Lint and formatting checks with ruff
+      run: |
+        # stop the build if any checks fail
+        poetry run ruff check --output-format=github .
+        poetry run ruff format --check .
+    - name: Run unit tests with pytest
+      run: |
+          poetry run pytest

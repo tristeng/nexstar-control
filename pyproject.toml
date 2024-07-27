@@ -1,14 +1,30 @@
 [tool.poetry]
 name = "nexstar-control"
-version = "0.1.0"
+version = "1.0.0"
 description = "A library that can be used to communicate and control Celestron NexStar telescope devices."
 authors = ["Tristen Georgiou <tristen.georgiou@gmail.com>"]
 readme = "README.md"
+license = "MIT"
+packages = [
+    {include = "nexstar_control"}
+]
+
+[tool.poetry.urls]
+Homepage = "https://github.com/tristeng/nexstar-control"
+Repository = "https://github.com/tristeng/nexstar-control.git"
+Issues = "https://github.com/tristeng/nexstar-control/issues"
+Changelog = "https://github.com/tristeng/nexstar-control/blob/main/CHANGELOG.md"
+
+[project.urls]
+Homepage = "https://github.com/tristeng/nexstar-control"
+Repository = "https://github.com/tristeng/nexstar-control.git"
+Issues = "https://github.com/tristeng/nexstar-control/issues"
+Changelog = "https://github.com/tristeng/nexstar-control/blob/main/CHANGELOG.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
 pyserial = "^3.5"
-tzdata = "*"
+tzdata = "*"  # always try to install the most up to date version
 
 
 [tool.poetry.group.dev.dependencies]

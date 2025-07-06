@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nexstar-control"
-version = "1.0.0"
+version = "1.0.1"
 description = "A library that can be used to communicate and control Celestron NexStar telescope devices."
 authors = ["Tristen Georgiou <tristen.georgiou@gmail.com>"]
 readme = "README.md"
